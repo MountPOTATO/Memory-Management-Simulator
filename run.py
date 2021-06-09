@@ -1,7 +1,7 @@
 '''
 Author: mount_potato
 Date: 2021-06-07 00:10:18
-LastEditTime: 2021-06-08 18:59:16
+LastEditTime: 2021-06-09 18:39:10
 LastEditors: Please set LastEditors
 Description: In User Settings Edit
 FilePath: \ostest\run.py
@@ -12,6 +12,8 @@ from PyQt5 import QtCore,QtWidgets
 from PyQt5.QtGui import QIcon
 from widget import Ui_QWidget
 from operation import *
+import qdarkstyle
+
 
 
 TOTAL_INS=320
@@ -26,13 +28,14 @@ class MainWidget(QtWidgets.QWidget):
         self.ui.setupUi(self)
         self.setWindowTitle("OS assignment-2 :Demand Paging Memory Management Simulator")
         self.setWindowIcon(QIcon("./resources/window_icon.png"))
+        self.setWindowOpacity(0.85)
         
         #计数器
         self.counter = 0
         #缺页总数
         self.miss_page_sum = 0
         #内存管理可选项：执行顺序函数，执行算法
-        self.order = op_sequence()
+        self.order = op_skip()
         self.algorithm = self.FIFO
         #组件列表：当前页号文本，当前页号可视化显示
         self.page_labels = (self.ui.page_text_1, self.ui.page_text_2, self.ui.page_text_3, self.ui.page_text_4)       
@@ -44,8 +47,8 @@ class MainWidget(QtWidgets.QWidget):
 
         #4个内存块的当前页号
         self.current_page = [NOPE, NOPE, NOPE, NOPE]
-        self.fresh_time = [NOPE, NOPE, NOPE, NOPE]
-        self.access_time = [NOPE, NOPE, NOPE, NOPE]
+        self.add_time = [NOPE, NOPE, NOPE, NOPE]
+        self.check_time = [NOPE, NOPE, NOPE, NOPE]
 
         #日志显示:指令执行情况表格与指令详细情况文本框输出
         self.table=self.ui.ins_table
@@ -71,6 +74,8 @@ class MainWidget(QtWidgets.QWidget):
         #触发一次重置按钮，整个界面预先重置
         self.ui.reset_button.click()
 
+        self.is_send=False
+
         #界面显示
         self.show()
 
@@ -91,7 +96,7 @@ class MainWidget(QtWidgets.QWidget):
             self.order=op_sequence()
         elif s=='跳步':
             self.order=op_skip()
-        else:
+        else:#"随机"
             self.order=op_rand()
 
     #连续执行按钮触发
@@ -104,6 +109,7 @@ class MainWidget(QtWidgets.QWidget):
     
     #重置按钮触发
     def on_reset_button_clicked(self):
+        self.is_send=True
         #计时器停止
         self.timer.stop()
         #清空详细情况输出框
@@ -112,14 +118,16 @@ class MainWidget(QtWidgets.QWidget):
         self.counter=0
         self.miss_page_sum=0
         self.ui.miss_times.setText("缺页次数:0")
+        self.ui.miss_times.setStyleSheet("color:#34eb3d;font-family:Microsoft YaHei;font-size: 18px;")
         self.ui.miss_ratio.setText("缺页率:-")
+        self.ui.miss_ratio.setStyleSheet("color:#34eb3d;font-family:Microsoft YaHei;font-size: 18px;")
         self.table.setRowCount(0)
 
         #重置页表，时间表
         for i in range(len(self.page_labels)):
             self.current_page[i]=NOPE
-            self.fresh_time[i]=NOPE
-            self.access_time[i]=NOPE
+            self.add_time[i]=NOPE
+            self.check_time[i]=NOPE
 
         #重设文本内容
         for i in range(0,len(self.page_labels)):
@@ -133,7 +141,6 @@ class MainWidget(QtWidgets.QWidget):
         
         if self.counter==TOTAL_INS:
             return
-        
         iter_ins=next(self.order)
         page=int(iter_ins/10)
         local_index=iter_ins%10
@@ -143,7 +150,7 @@ class MainWidget(QtWidgets.QWidget):
             #命中时
             if self.current_page[i]==page:
                 target_index=i
-                self.access_time[i]=self.counter
+                self.check_time[i]=self.counter
 
                 self.tableAddNew(str(iter_ins),str(page),"否","","")
                 
@@ -152,6 +159,8 @@ class MainWidget(QtWidgets.QWidget):
                 
                 self.page_visual_update(target_index,local_index)
 
+                for label in self.page_labels:
+                    label.setStyleSheet("color:#ffffff")
                 break    
         
         #未发生命中时,进行调页
@@ -167,14 +176,15 @@ class MainWidget(QtWidgets.QWidget):
 
             self.tableAddNew(str(iter_ins),str(page),"是",old_page_string,str(page))
 
-            self.printMessage("第{}条指令,地址为第{}页首地址+{},缺页,根据{}算法,{}将第{}页调入内存块{}\
+            self.printMessage('<font color = #e5ff00>%s</font>'%(
+                "第{}条指令,地址为第{}页首地址+{},缺页,根据{}算法,{}将第{}页调入内存块{}\
                                 ".format(   self.counter+1,
                                             page+1,
                                             local_index,
                                             "FIFO" if self.algorithm==self.FIFO else "LRU",
                                             "置换出内存块{}的第{}页,并".format(target_index+1,old_page+1) if old_page!=NOPE else "",
                                             page+1,target_index+1
-                                    ))
+                                    )))
 
             self.page_visual_update(target_index,local_index)
 
@@ -187,23 +197,29 @@ class MainWidget(QtWidgets.QWidget):
         
 #######################################################调页算法########################################################
     def FIFO(self):
-        return min(list(enumerate(self.fresh_time)),key=lambda x: x[1])[0]
+        return min(list(enumerate(self.add_time)),key=lambda x: x[1])[0]
     
     def LRU(self):
-        return min(list(enumerate(self.access_time)),key=lambda x: x[1])[0]
+        return min(list(enumerate(self.check_time)),key=lambda x: x[1])[0]
 
 #######################################################换页方法########################################################
     def page_swapping(self,old_index,new):
-        self.fresh_time[old_index]=self.counter
-        self.access_time[old_index]=self.counter
+        self.add_time[old_index]=self.counter
+        self.check_time[old_index]=self.counter
         self.current_page[old_index]=new
+        #文本内容更新
         self.page_labels[old_index].setText("Page {}".format(new+1))
         self.page_labels[old_index].setVisible(True)
+        self.page_labels[old_index].setStyleSheet("color:#e5ff00;font-weight:bold;")
+        for i,label in enumerate(self.page_labels):
+            if i!=old_index:
+                label.setStyleSheet("color:#ffffff")
+            
 
 
 #######################################################显示更新方法####################################################
     def printMessage(self,string):
-        self.log.append(string)
+        self.log.append('<font color = #34eb3d>%s</font>'%(string))
         self.cursor=self.log.textCursor()
         self.log.moveCursor(self.cursor.End)
         QtWidgets.QApplication.processEvents()
@@ -215,16 +231,23 @@ class MainWidget(QtWidgets.QWidget):
         self.table.setItem(self.counter, 2, QtWidgets.QTableWidgetItem(c3))
         self.table.setItem(self.counter, 3, QtWidgets.QTableWidgetItem(c4))
         self.table.setItem(self.counter, 4, QtWidgets.QTableWidgetItem(c5))
-    
+        self.table.scrollToBottom()
+
     def page_visual_update(self,target_index,mark):
-        visual=""
-        for j in range(0,10):
-            visual+=("×" if j==mark else "█")
-        self.page_visual[target_index].setText(visual)        
+        word1='<font color = #00FFFF>%s</font>'%("█"*mark)   
+        word2='<font color = #00FFFF>%s</font>'%("█"*(9-mark))
+        word3='<font color = #EE9C66>%s</font>'%("█")
+        self.page_visual[target_index].setText(word1+word3+word2) 
+        for i,visual in enumerate(self.page_visual):
+            if i != target_index:
+                if self.current_page[i]!=-1:
+                    visual.setText('<font color = #00FFFF>%s</font>'%("█"*10))
+
 
 #######################################################主函数####################################################
 if __name__=='__main__':
     app = QtWidgets.QApplication(sys.argv)
+    app.setStyleSheet(qdarkstyle.load_stylesheet_pyqt5())
     widget=MainWidget()
     sys.exit(app.exec())
 
