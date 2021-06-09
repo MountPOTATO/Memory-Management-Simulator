@@ -1,9 +1,5 @@
 # 同济大学软件学院操作系统课程项目——内存管理：请求分页分配方式
 
-|  学号   |  姓名  |  指导老师  |   院系   |   课程   |
-| :-----: | :----: | :--------: | :------: | :------: |
-| 1951724 | 陈垲昕 | 张惠娟老师 | 软件学院 | 操作系统 |
-
 ## 1.项目简介
 
 假设每个页面可存放10条指令，分配给一个作业的内存块为4。模拟一个作业的执行过程，该作业有320条指令，即它的地址空间为32页，目前所有页还没有调入内存。给定条件下简单的模拟一个内存调度过程, 置换算法使用FIFO算法或LRU算法
@@ -113,40 +109,7 @@ for循环遍历页表:
 更新缺页率
 ```
 
-```flow
-st=>start: 开始
-if1=>condition: 已执行完
-320条指令
-end1=>end: 退出
-op1=>operation: 根据选择框中的访问顺序
-（顺序、随机、跳步）
-获取下一个指令逻辑地址
-根据获取的逻辑地址确定页号，页内偏移
-op2=>operation: 根据获取的逻辑地址
-确定页号，页内偏移
-if2=>condition: 4个内存块中
-找到了存有当
-前页的内存块
-op3=>operation: 更新该内存块
-的check_time值
-op4=>operation: 更新缺页数
-op5=>operation: 根据LRU()或FIFO()函数获取需要替换的内存块索引
-op6=>operation: 进行调换,对新换入的页面
-更新add_time与check_time值
-before=>operation: 更新缺页率
-
-st(right)->if1
-
-if1(no)->op1->op2->if2
-if2(yes)->op3
-if2(no)->op4->op5->op6
-op6(left)->before
-op3->before
-before(left)->end1
-if1(yes)->end1
-
-
-```
+![img](https://gitee.com/mount-potato/markdown-img-hosting/raw/master/pic/20210609195513.png)
 
 
 
